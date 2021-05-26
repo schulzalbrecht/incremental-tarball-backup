@@ -16,10 +16,17 @@ BACKUP_LOCATION=./test/backup
 # list of all files and folders in the backup
 FILES=./test/files
 
-# check for all files and dirs existance
+# check if directories exist
 
 
 # collect and compress the list of files onto the $backup_location/YYYY-MM-dd-HHmmss_backup
+backup_filename=".$(date +%F-%H%M%S)_backup"
+
+# perform full backup with tar and gzip
+echo "Backup process started."
+tar czvf "$BACKUP_LOCATION"/"$backup_filename" "$FILES"
+echo "Backup completed successfully."
+
 
 # =====================================
 
