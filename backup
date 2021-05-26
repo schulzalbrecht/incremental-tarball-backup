@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# assumes that the veracrypt encrypted volume has been already created 
+
+# where the veracrypt encrypted volume will be mounted
+mount_point=
+
+# mount the encrypted veracrypt volume
+
+# =====================================
+# BACKUP ALGO
+
+# path where the encrypted volume is located
+BACKUP_LOCATION=./test/backup
+
+# list of all files and folders in the backup
+FILES=./test/files
+
+# check for all files and dirs existance
+
+
+# collect and compress the list of files onto the $backup_location/YYYY-MM-dd-HHmmss_backup
+
+# =====================================
+
+# unmount the veracrypt encrypted volume
+
+
+
