@@ -24,17 +24,27 @@ MOUNT_POINT=
 # path where the encrypted volume is located
 BACKUP_LOCATION=./test/backup
 
+# collect and compress the list of files onto the $backup_location/YYYY-MM-dd-HHmmss_backup
+backup_filename=".$(date +%F-%H%M%S)_backup"
+
 # list of all files and folders in the backup
 FILES=(
 	"./test/docs"
 	"./test/vids"
 	"./test/photos"
+	"./test/backup"
+)
+
+EXCLUDED_FILES=(
+	""$BACKUP_LOCATION"/"$backup_filename".tgz"
 )
 
 if [ ! -d "$BACKUP_LOCATION" ]; then
 	echo "Backup location '"$BACKUP_LOCATION"' does not exist.">&2
 	usage
 fi
+
+# check if array is empty
 
 for file in "${FILES[@]}"; do
 	if [ ! -d "$file" ]; then
@@ -44,12 +54,17 @@ for file in "${FILES[@]}"; do
 done
 
 
-# collect and compress the list of files onto the $backup_location/YYYY-MM-dd-HHmmss_backup
-backup_filename=".$(date +%F-%H%M%S)_backup"
-
 echo "Full backup started."
 
-tar czvf "$BACKUP_LOCATION"/"$backup_filename".tgz ${FILES[*]}
+if [ "${#EXCLUDED_FILES[*]}" -eq 0 ]; then
+	echo "number of excluded files in backup without excluding files: ${#EXCLUDED_FILES[*]}"
+
+	tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz ${FILES[*]}
+else
+	echo "number of excluded files with excluding files funct.: ${#EXCLUDED_FILES[*]}"
+
+	tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz --exclude=${EXCLUDED_FILES[*]} ${FILES[*]}
+fi
 
 echo "Full backup completed successfully."
 
