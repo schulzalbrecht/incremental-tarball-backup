@@ -40,7 +40,7 @@ EXCLUDED_FILES=(
 	# slash(/) at the end of the path
 
 	""$BACKUP_LOCATION"/"$backup_filename".tgz"
-	"./test/docs"	
+	#"./test/docs"	
 	"./test/vids"
 )
 
@@ -62,20 +62,24 @@ for file in "${FILES[@]}"; do
 done
 
 
-echo "Full backup started."
-
-if [ "${#EXCLUDED_FILES[*]}" -eq 0 ]; then
-	echo " tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz ${FILES[*]} "
-else
+format_excluded_files () {
 	# tar requires that all exluded files/directories are prefixed with --excluded	
-	excluded_files_string=
 
+	local excluded_files_string=
 	for excluded_file in "${EXCLUDED_FILES[@]}"; do	
 		excluded_files_string="$excluded_files_string --exclude="$excluded_file" "
 	done
 
-	tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz $excluded_files_string ${FILES[*]}
+	echo "$excluded_files_string"
+}
 
+
+echo "Full backup started."
+
+if [ "${#EXCLUDED_FILES[*]}" -eq 0 ]; then
+	tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz ${FILES[*]}
+else
+	tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz $(format_excluded_files) ${FILES[*]}
 fi
 
 echo "Full backup completed successfully."
