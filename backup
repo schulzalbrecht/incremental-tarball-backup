@@ -31,13 +31,21 @@ backup_filename=".$(date +%F-%H%M%S)_backup"
 FILES=(
 	"./test/docs"
 	"./test/vids"
-	"./test/photos"
-	"./test/backup"
+	#./test/photos"
+	#./test/backup"
 )
 
 EXCLUDED_FILES=(
+	# Note: when excluding directories, make sure NOT to use the traililng
+	# slash(/) at the end of the path
+
 	""$BACKUP_LOCATION"/"$backup_filename".tgz"
+	"./test/docs"	
+	"./test/vids"
 )
+
+# TODO: test paths with spaces and characters that aren't POSIX standard
+
 
 if [ ! -d "$BACKUP_LOCATION" ]; then
 	echo "Backup location '"$BACKUP_LOCATION"' does not exist.">&2
@@ -57,13 +65,17 @@ done
 echo "Full backup started."
 
 if [ "${#EXCLUDED_FILES[*]}" -eq 0 ]; then
-	echo "number of excluded files in backup without excluding files: ${#EXCLUDED_FILES[*]}"
-
-	tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz ${FILES[*]}
+	echo " tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz ${FILES[*]} "
 else
-	echo "number of excluded files with excluding files funct.: ${#EXCLUDED_FILES[*]}"
+	# tar requires that all exluded files/directories are prefixed with --excluded	
+	excluded_files_string=
 
-	tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz --exclude=${EXCLUDED_FILES[*]} ${FILES[*]}
+	for excluded_file in "${EXCLUDED_FILES[@]}"; do	
+		excluded_files_string="$excluded_files_string --exclude="$excluded_file" "
+	done
+
+	tar czpvf "$BACKUP_LOCATION"/"$backup_filename".tgz $excluded_files_string ${FILES[*]}
+
 fi
 
 echo "Full backup completed successfully."
