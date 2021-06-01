@@ -40,7 +40,7 @@ get_backup_details () {
 		# slash(/) at the end of the path
 
 		#"./test/docs"	
-		"./test/vids"
+		#"./test/vids"
 	)
 }
 
@@ -75,9 +75,15 @@ format_excluded_files () {
 	""$BACKUP_LOCATION"/$(get_backup_filename).tgz"
 
 	local excluded_files_string=
-	for excluded_file in "${EXCLUDED_FILES[@]}"; do	
-		excluded_files_string="$excluded_files_string --exclude="$excluded_file" "
-	done
+
+
+	if [ "${#EXCLUDED_FILES[*]}" -eq 0 ]; then
+			exluded_files_string=""
+	else
+		for excluded_file in "${EXCLUDED_FILES[@]}"; do	
+			excluded_files_string="$excluded_files_string --exclude="$excluded_file" "
+		done
+	fi
 
 	echo "$excluded_files_string"
 }
@@ -87,13 +93,10 @@ backup () {
 	get_backup_details
 	validate_backup_details
 
+
 	echo "Full backup started."
 
-	if [ "${#EXCLUDED_FILES[*]}" -eq 0 ]; then
-		tar czpvf "$BACKUP_LOCATION"/$(get_backup_filename).tgz ${FILES[*]}
-	else
-		tar czpvf "$BACKUP_LOCATION"/$(get_backup_filename).tgz $(format_excluded_files) ${FILES[*]}
-	fi
+	echo " tar czpvf "$BACKUP_LOCATION"/$(get_backup_filename).tgz $(format_excluded_files) ${FILES[*]} "
 
 	echo "Full backup completed successfully."
 }
