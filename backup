@@ -40,7 +40,7 @@ get_backup_details () {
 		# slash(/) at the end of the path
 
 		#"./test/docs"	
-		#"./test/vids"
+		"./test/vids"
 	)
 }
 
@@ -62,20 +62,29 @@ validate_backup_details () {
 	done
 }
 
-
 get_backup_filename () {
 	# collect and compress the list of files onto the $backup_location/YYYY-MM-dd-HHmmss_backup
 	echo ".$(date +%F-%H%M%S)_backup"
 }
 
 
+format_files_for_backup () {
+	local files_string=
+
+	if [ "${#FILES[*]}" -eq 0 ]; then
+			files_string=""
+	else
+		for file in "${FILES[@]}"; do	
+			files_string="$FILES "$file" "
+		done
+	fi
+
+	echo "$files_string"
+}
+
 format_excluded_files () {
 	# tar requires that all exluded files/directories are prefixed with --excluded	
-
-	""$BACKUP_LOCATION"/$(get_backup_filename).tgz"
-
 	local excluded_files_string=
-
 
 	if [ "${#EXCLUDED_FILES[*]}" -eq 0 ]; then
 			exluded_files_string=""
@@ -94,10 +103,31 @@ backup () {
 	validate_backup_details
 
 
+	# =======NEW ALGORITHM=============
+	md5sum_filename="backup.md5sum"
+
+	# check current backup.md5sum
+	## if exists in the folder, uncompress it
+	if [ -f "$BACKUP_LOCATION"/$md5sum_filename ]; then
+    	echo "backup.md5sum found"
+	else
+		echo "Creating backup.md5sum..."	
+		find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
+		"$BACKUP_LOCATION"/$md5sum_filename
+	fi
+	
+	
+	# generate next-backup.md5sum and compare it with backup.md5sum
+	# compare both files and get the delete files
+	# 	-to be developed
+	# compare both files and get the newly added files
+	# 	-to be developed
+	
+	# ==================================	
+
 	echo "Full backup started."
-
-	echo " tar czpvf "$BACKUP_LOCATION"/$(get_backup_filename).tgz $(format_excluded_files) ${FILES[*]} "
-
+	#echo " tar czpvf "$BACKUP_LOCATION"/$(get_backup_filename).tgz $(format_excluded_files) ${FILES[*]} "
+	tar czpvf "$BACKUP_LOCATION"/full-backup.tgz $(format_excluded_files) ${FILES[*]}
 	echo "Full backup completed successfully."
 }
 
