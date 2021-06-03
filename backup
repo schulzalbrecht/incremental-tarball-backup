@@ -42,6 +42,8 @@ get_backup_details () {
 		#"./test/docs"	
 		"./test/vids"
 	)
+
+	FINGERPRINT_FILENAME="backup.md5sum"
 }
 
 validate_backup_details () {
@@ -97,6 +99,17 @@ format_excluded_files () {
 	echo "$excluded_files_string"
 }
 
+create_fingerprint_initial_backup () {
+	echo "Creating backup fingerprint..."	
+	find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
+	"$BACKUP_LOCATION"/$FINGERPRINT_FILENAME
+}
+
+create_fingerprint_incoming_backup () {
+	echo "Creating backup fingerprint..."	
+	find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
+	"$BACKUP_LOCATION"/"incoming_"$FINGERPRINT_FILENAME	
+}
 
 backup () {
 	get_backup_details
@@ -104,16 +117,32 @@ backup () {
 
 
 	# =======NEW ALGORITHM=============
-	md5sum_filename="backup.md5sum"
+	# TODO: crate global incoming_fingerprint_filename, as code like this is
+	# error-prone
 
-	# check current backup.md5sum
+	# Check current backup.md5sum
 	## if exists in the folder, uncompress it
-	if [ -f "$BACKUP_LOCATION"/$md5sum_filename ]; then
-    	echo "backup.md5sum found"
+	if [ -f "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" ]; then
+    	echo "Fingerprint file exists"
+	
+		echo "Creating fingerprint file for incoming backup files..."
+		create_fingerprint_incoming_backup		
+
+		echo "Comparing incoming changes with existing files..."
+	
+		# check if there is any difference at all between the files
+		local diff=$(diff "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
+			"$BACKUP_LOCATION/incoming_$FINGERPRINT_FILENAME")
+
+		if [ "$DIFF" == "" ]; then
+    		echo "No changes found."
+			exit 1
+		else
+			# show changes
+		fi	
+
 	else
-		echo "Creating backup.md5sum..."	
-		find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
-		"$BACKUP_LOCATION"/$md5sum_filename
+		create_fingerprint_initial_backup
 	fi
 	
 	
