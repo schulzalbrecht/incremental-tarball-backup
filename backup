@@ -44,6 +44,7 @@ get_backup_details () {
 	)
 
 	FINGERPRINT_FILENAME="backup.md5sum"
+	INCOMING_FINGERPRINT_FILENAME="incoming_backup.md5sum"
 }
 
 validate_backup_details () {
@@ -106,10 +107,31 @@ create_fingerprint_initial_backup () {
 }
 
 create_fingerprint_incoming_backup () {
-	echo "Creating backup fingerprint..."	
+	echo "Creating fingerprint file for incoming backup files..."
 	find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
-	"$BACKUP_LOCATION"/"incoming_"$FINGERPRINT_FILENAME	
+	"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME"
 }
+
+identify_changes () {
+	echo "Comparing incoming changes with existing files..."	
+	# check if there is any difference at all between the files
+	local diff="$(diff "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
+		"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME")"
+
+	if [ "$diff" == "" ]; then
+		echo "No changes found."
+		exit 1
+	else
+		echo "Files that have been deleted:"
+		 diff --suppress-common-lines "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
+			"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME" | grep '^<' | cut -d " " -f 4
+
+		echo "Files that have been added:"
+		 diff --suppress-common-lines "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
+			"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME" | grep '^>' | cut -d " " -f 4
+	fi	
+}
+
 
 backup () {
 	get_backup_details
@@ -125,21 +147,9 @@ backup () {
 	if [ -f "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" ]; then
     	echo "Fingerprint file exists"
 	
-		echo "Creating fingerprint file for incoming backup files..."
-		create_fingerprint_incoming_backup		
+		create_fingerprint_incoming_backup
 
-		echo "Comparing incoming changes with existing files..."
-	
-		# check if there is any difference at all between the files
-		local diff=$(diff "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
-			"$BACKUP_LOCATION/incoming_$FINGERPRINT_FILENAME")
-
-		if [ "$DIFF" == "" ]; then
-    		echo "No changes found."
-			exit 1
-		else
-			# show changes
-		fi	
+		identify_changes
 
 	else
 		create_fingerprint_initial_backup
@@ -156,7 +166,8 @@ backup () {
 
 	echo "Full backup started."
 	#echo " tar czpvf "$BACKUP_LOCATION"/$(get_backup_filename).tgz $(format_excluded_files) ${FILES[*]} "
-	tar czpvf "$BACKUP_LOCATION"/full-backup.tgz $(format_excluded_files) ${FILES[*]}
+	echo " tar czpvf "$BACKUP_LOCATION"/full-backup.tgz $(format_excluded_files) \
+	${FILES[*]} "
 	echo "Full backup completed successfully."
 }
 
