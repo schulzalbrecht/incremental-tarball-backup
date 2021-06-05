@@ -25,6 +25,9 @@ dismount () {
 
 get_backup_details () {
 	# path where the encrypted volume is located
+	# the backup location should be a folder, therefore it should not contain a
+	# slash at the end
+	# TODO: check if contains slash
 	BACKUP_LOCATION=./test/backup
 
 	# list of all files and folders in the backup
@@ -115,20 +118,26 @@ create_fingerprint_incoming_backup () {
 identify_changes () {
 	echo "Comparing incoming changes with existing files..."	
 	# check if there is any difference at all between the files
-	local diff="$(diff "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
+	local diff_output="$(diff --suppress-common-lines \
+		"$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
 		"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME")"
 
-	if [ "$diff" == "" ]; then
+	if [ "$diff_output" == "" ]; then
 		echo "No changes found."
 		exit 1
 	else
+		# added the || true because diff throws the "file not found" error message
+		# and stops the script
+
 		echo "Files that have been deleted:"
-		 diff --suppress-common-lines "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
-			"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME" | grep '^<' | cut -d " " -f 4
+		diff --suppress-common-lines "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
+		"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME" | grep '^<' | cut -d \
+		" " -f 4 || true
 
 		echo "Files that have been added:"
-		 diff --suppress-common-lines "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
-			"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME" | grep '^>' | cut -d " " -f 4
+		diff --suppress-common-lines "$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
+		"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME" | grep '^>' | cut -d \
+		" " -f 4 || true
 	fi	
 }
 
