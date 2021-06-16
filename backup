@@ -70,9 +70,9 @@ validate_backup_details () {
 	done
 }
 
-get_backup_filename () {
+get_backup_timefilename () {
 	# collect and compress the list of files onto the $backup_location/YYYY-MM-dd-HHmmss_backup
-	echo ".$(date +%F-%H%M%S)_backup"
+	echo "$(date +%F-%H%M%S)_backup"
 }
 
 
@@ -108,17 +108,18 @@ format_excluded_files () {
 create_fingerprint_initial_backup () {
 	echo "Creating backup fingerprint..."	
 	find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
-	"$BACKUP_LOCATION"/$FINGERPRINT_FILENAME
+	"$BACKUP_LOCATION/$(get_backup_timefilename)_full.md5sum"
 }
 
 create_fingerprint_incoming_backup () {
 	echo "Creating fingerprint file for incoming backup files..."
 	find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
-	"$BACKUP_LOCATION/$INCOMING_FINGERPRINT_FILENAME"
+	"$BACKUP_LOCATION/$(get_backup_timefilename).md5sum"
 }
 
 identify_changes () {
-	echo "Comparing incoming changes with existing files..."	
+	echo "Checking for newer changes..."
+
 	# check if there is any difference at all between the files
 	local diff_output="$(diff --suppress-common-lines \
 		"$BACKUP_LOCATION/$FINGERPRINT_FILENAME" \
@@ -144,7 +145,20 @@ identify_changes () {
 }
 
 
-backup () {
+perform_full_backup () {
+	
+	create_fingerprint_initial_backup
+
+	echo "Full backup started."
+	#echo " tar czpvf "$BACKUP_LOCATION"/$(get_backup_timefilename).tgz $(format_excluded_files) ${FILES[*]} "
+	echo " tar czpvf "$BACKUP_LOCATION"/full-backup.tgz $(format_excluded_files) \
+	${FILES[*]} "
+	echo "Full backup completed successfully."
+
+}
+
+
+main () {
 	get_backup_details
 	validate_backup_details
 
@@ -152,28 +166,21 @@ backup () {
 	# =======NEW ALGORITHM 3=============
 	# creating md5sum for every backup (full and diff-incremental)
 	
-	# checks if there are any md5sum files in the current directory
-	if [ ! -f "$BACKUP_LOCATION"/*.md5sum ]; then
-		# if not makes a full backup
-    	echo "Fingerprint file not found." 
-		
-		create_fingerprint_initial_backup
+	#checks if there are any md5sum files in the current directory	
+	local md5sum_check="$(find "$BACKUP_LOCATION" -name '*.md5sum')"
 
-		echo "Full backup started."
-		#echo " tar czpvf "$BACKUP_LOCATION"/$(get_backup_filename).tgz $(format_excluded_files) ${FILES[*]} "
-		echo " tar czpvf "$BACKUP_LOCATION"/full-backup.tgz $(format_excluded_files) \
-		${FILES[*]} "
-		echo "Full backup completed successfully."
+	if [ "$md5sum_check" == "" ]; then
+		echo "Fingerprint file not found." 
+		perform_full_backup
 	
 	else
-		echo "Fingerprint file exists"
+		echo "Fingerprint file found."
 
-		# if so, takes the latest md5sum created (not modified)
-		#create_fingerprint_incoming_backup
+		echo "Creating incremental backup."	
+		create_fingerprint_incoming_backup
+
 		#identify_changes
 
-		# if new changes, then create Versioning folder
-		# create a folder 
 		# create then the tar file with suffix
 	fi
 
@@ -182,7 +189,7 @@ backup () {
 
 case "$1" in 	
 	"")				#mount
-					backup
+					main
 					#dismount	
 					;;
 	-h|--help)		usage
