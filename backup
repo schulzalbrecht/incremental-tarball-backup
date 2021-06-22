@@ -45,11 +45,17 @@ get_backup_details () {
 		#"./test/docs"	
 		"./test/vids"
 	)
+	# TODO: paths that are both inn the excluded and in the files to be backup are
+	# indeed being backup, solve it 
 
 	FINGERPRINT_FILENAME="backup.md5sum"
 	# var not used anymore, it will be replaced by [date]FINGERPRINT_FILENAME
 	# according to new algorithm
 	#INCOMING_FINGERPRINT_FILENAME="incoming_backup.md5sum"
+
+	# collect and compress the list of files onto the $backup_location/YYYY-MM-dd-HHmmss_backup
+	BACKUP_TIMEFILENAME="$(date +%F-%H%M%S)_backup"
+
 }
 
 validate_backup_details () {
@@ -70,6 +76,7 @@ validate_backup_details () {
 	done
 }
 
+# todo: name needs to be generated once and not everytime a function calls it.
 get_backup_timefilename () {
 	# collect and compress the list of files onto the $backup_location/YYYY-MM-dd-HHmmss_backup
 	echo "$(date +%F-%H%M%S)_backup"
@@ -105,29 +112,30 @@ format_excluded_files () {
 	echo "$excluded_files_string"
 }
 
+# todo: join the below two methods into one and return based on variable param.
 create_fingerprint_initial_backup () {
 	echo "Creating backup fingerprint..."	
 	find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
-	"$BACKUP_LOCATION/$(get_backup_timefilename)_full.md5sum"
+	"$BACKUP_LOCATION/$BACKUP_TIMEFILENAME"'_full.md5sum'
 }
 
 create_fingerprint_incoming_backup () {
 	echo "Creating fingerprint file for incoming backup files..."
 	find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
-	"$BACKUP_LOCATION/$(get_backup_timefilename).md5sum"
+	"$BACKUP_LOCATION/$BACKUP_TIMEFILENAME"'.md5sum'
 }
 
-identify_changes () {
+check_if_incremental_backup_required () {
 	echo "Checking for newer changes..."
 
-	if [ "$(get_list_changed_files)" == "" ]; then
+	if [ -z "$(get_list_changed_files)" ]; then
 		echo "No changes found."
 		echo "Deleting last md5sum just created for comparison"
 		rm "$BACKUP_LOCATION/$(get_incoming_md5sum)"
 		exit 1
 	else
 		echo "Newer files/changes found."
-	fi	
+	fi
 }
 
 
@@ -168,20 +176,22 @@ get_list_changed_files () { # args: only-added
 }
 
 
-perform_incremental_backup () {		
-		# TODONOW
-
-
+perform_incremental_backup () {			
 		# echo "Files that have been added:"
-		echo "$(get_list_changed_files only-added)"
+		local list_added_files="$(get_list_changed_files only-added)" 
+	
+		echo "Incremental backup started."
+
+		echo " tar czpvf "$BACKUP_LOCATION/$BACKUP_TIMEFILENAME" \
+		"${list_added_files[*]}" "
+
+		echo "Incremental backup completed successfully."	
 }
 
 
 perform_full_backup () {	
-	create_fingerprint_initial_backup
 
 	echo "Full backup started."
-	#echo " tar czpvf "$BACKUP_LOCATION"/$(get_backup_timefilename).tgz $(format_excluded_files) ${FILES[*]} "
 	echo " tar czpvf "$BACKUP_LOCATION"/full-backup.tgz $(format_excluded_files) \
 	${FILES[*]} "
 	echo "Full backup completed successfully."
@@ -192,31 +202,28 @@ perform_full_backup () {
 
 main () {
 	get_backup_details
-	validate_backup_details
 
-	# =======NEW ALGORITHM 3=============
-	# creating md5sum for every backup (full and diff-incremental)	
+	validate_backup_details
 
 	#checks if there are any md5sum files in the current directory	
 	local md5sum_check="$(find "$BACKUP_LOCATION" -name '*.md5sum')"
 
 	if [ "$md5sum_check" == "" ]; then
 		echo "Fingerprint file not found." 
+
+		create_fingerprint_initial_backup
+
 		perform_full_backup
 	
 	else
 		echo "Fingerprint file found."
 
-		echo "Creating incremental backup."	
 		create_fingerprint_incoming_backup
 
-		identify_changes
+		check_if_incremental_backup_required
 
 		perform_incremental_backup		
-		# create then the tar file with suffix
-
 	fi
-
 }
 
 
