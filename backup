@@ -133,12 +133,17 @@ check_if_incremental_backup_required () {
 		echo "Deleting last md5sum just created for comparison"
 		rm "$BACKUP_LOCATION/$(get_incoming_md5sum)"
 		exit 1
+	elif [ -z "$(get_list_changed_files only-added)" ]; then
+		echo "The changes consist of only deleted files. \
+				Therefore no incremental backup is needed"	
+		exit 1
 	else
 		echo "Newer files/changes found."
 	fi
 }
 
 
+# change it to one single method with params
 get_incoming_md5sum () {
 	local incoming_md5sum="$(ls -1Aht "$BACKUP_LOCATION" | head -n 1)"
 
