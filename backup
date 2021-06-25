@@ -112,18 +112,23 @@ format_excluded_files () {
 	echo "$excluded_files_string"
 }
 
-# todo: join the below two methods into one and return based on variable param.
-create_fingerprint_initial_backup () {
-	echo "Creating backup fingerprint..."	
-	find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
-	"$BACKUP_LOCATION/$BACKUP_TIMEFILENAME"'_full.md5sum'
+
+create_fingerprint () { # arg1: initial-bak || incoming-bak
+	if [ "$1" == 'initial-bak' ]; then
+		echo "Creating backup fingerprint..."	
+		find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
+		"$BACKUP_LOCATION/$BACKUP_TIMEFILENAME"'_full.md5sum'
+
+	elif [ "$1" == 'incoming-bak' ]; then
+		echo "Creating fingerprint file for incoming backup files..."
+		find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
+		"$BACKUP_LOCATION/$BACKUP_TIMEFILENAME"'.md5sum'
+	else
+		echo "Error: invalid parameter"
+		exit 1
+	fi
 }
 
-create_fingerprint_incoming_backup () {
-	echo "Creating fingerprint file for incoming backup files..."
-	find $(format_files_for_backup) -type f -exec md5sum {} + | sort -k 2 > \
-	"$BACKUP_LOCATION/$BACKUP_TIMEFILENAME"'.md5sum'
-}
 
 check_if_incremental_backup_required () {
 	echo "Checking for newer changes..."
@@ -131,12 +136,14 @@ check_if_incremental_backup_required () {
 	if [ -z "$(get_list_changed_files)" ]; then
 		echo "No changes found."
 		echo "Deleting last md5sum just created for comparison"
-		rm "$BACKUP_LOCATION/$(get_incoming_md5sum)"
+		rm -f "$BACKUP_LOCATION/$(get_fingerprint temporary)"
 		exit 1
+
 	elif [ -z "$(get_list_changed_files only-added)" ]; then
 		echo "The changes consist of only deleted files. \
 				Therefore no incremental backup is needed"	
 		exit 1
+
 	else
 		echo "Newer files/changes found."
 	fi
@@ -144,36 +151,42 @@ check_if_incremental_backup_required () {
 
 
 # change it to one single method with params
-get_incoming_md5sum () {
-	local incoming_md5sum="$(ls -1Aht "$BACKUP_LOCATION" | head -n 1)"
 
-	echo "$incoming_md5sum"
+get_fingerprint () { # param1: 
+	if [ "$1" == 'temporary' ]; then 
+		# fingerprint created temporarily to check for changes
+		local incoming_md5sum="$(ls -1Aht "$BACKUP_LOCATION" | head -n 1)"
+		echo "$incoming_md5sum"
+
+	elif [ "$1" == 'last-bak' ]; then
+		# fingerprint created in the last backup
+		local last_backup_md5sum="$(ls -1Aht "$BACKUP_LOCATION" | head -n 2 | tail -n 1)"
+		echo "$last_backup_md5sum"
+
+	else
+		echo "Error: invalid parameter"
+		exit 1
+
+	fi
 }
 
-get_current_backup_md5sum () {
-	local last_backup_md5sum="$(ls -1Aht "$BACKUP_LOCATION" | head -n 2 | tail -n 1)"
 
-	echo "$last_backup_md5sum"
-}
-
-
-get_list_changed_files () { # args: only-added
-
-	# added the || true because diff throws the "file not found" error message
+get_list_changed_files () { # arg1: only-added
+	# Added the `|| true' because diff throws the "file not found" error message
 	# and stops the script, so far I couldn't find a more elegant solution
 
 	if [ "$1" == 'only-added' ]; then
 		local list_only_added_files="$(diff --suppress-common-lines \
-			"$BACKUP_LOCATION/$(get_current_backup_md5sum)" \
-			"$BACKUP_LOCATION/$(get_incoming_md5sum)" \
+			"$BACKUP_LOCATION/$(get_fingerprint last-bak)" \
+			"$BACKUP_LOCATION/$(get_fingerprint temporary)" \
 			| grep '^>' | cut -d ' ' -f 4 || true)"
 
 		echo "$list_only_added_files"
 		
 	else
 		local list_changed_files="$(diff --suppress-common-lines \
-			"$BACKUP_LOCATION/$(get_current_backup_md5sum)" \
-			"$BACKUP_LOCATION/$(get_incoming_md5sum)" 
+			"$BACKUP_LOCATION/$(get_fingerprint last-bak)" \
+			"$BACKUP_LOCATION/$(get_fingerprint temporary)" 
 		)"
 
 		echo "$list_changed_files"
@@ -182,23 +195,21 @@ get_list_changed_files () { # args: only-added
 
 
 perform_incremental_backup () {			
-		# echo "Files that have been added:"
 		local list_added_files="$(get_list_changed_files only-added)" 
 	
 		echo "Incremental backup started."
-
 		echo " tar czpvf "$BACKUP_LOCATION/$BACKUP_TIMEFILENAME" \
 		"${list_added_files[*]}" "
-
 		echo "Incremental backup completed successfully."	
+
+		exit 0
 }
 
 
 perform_full_backup () {	
-
 	echo "Full backup started."
-	echo " tar czpvf "$BACKUP_LOCATION"/full-backup.tgz $(format_excluded_files) \
-	${FILES[*]} "
+	tar czpvf "$BACKUP_LOCATION"/full-backup.tgz $(format_excluded_files) \
+		${FILES[*]}
 	echo "Full backup completed successfully."
 
 	exit 0
@@ -210,20 +221,21 @@ main () {
 
 	validate_backup_details
 
-	#checks if there are any md5sum files in the current directory	
-	local md5sum_check="$(find "$BACKUP_LOCATION" -name '*.md5sum')"
+	# TODO: bug - the files in the tar.gz and in the md5sum differs. because the
+	# tar.gz DOES take into account the --exluded files, but the md5sum does NOT
 
-	if [ "$md5sum_check" == "" ]; then
+	local existing_md5sums_list="$(find "$BACKUP_LOCATION" -name '*.md5sum')"
+	if [ "$existing_md5sums_list" == "" ]; then
 		echo "Fingerprint file not found." 
 
-		create_fingerprint_initial_backup
+		create_fingerprint initial-bak
 
 		perform_full_backup
 	
 	else
 		echo "Fingerprint file found."
 
-		create_fingerprint_incoming_backup
+		create_fingerprint incoming-bak
 
 		check_if_incremental_backup_required
 
