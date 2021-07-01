@@ -1,23 +1,26 @@
 
 
-# BACKUP - still trying to find a good name for it
+# INCREMENTAL TARBALL BACKUP
 
-It helps back up data using veracrypt volumes. 
+The goal of the project is to create a script that combines `tar` with `find` to
+produce incremental compressed backups. 
 
-It assumes you have already created the encrypted volume.
-The rest will be done by verarquive, it means:
-1. Mounting the volume;
-2. Moving the selected data onto the encrypted volume;
-3. Dismounting the volume.
+## Why am I using tar & find over rsync?
+The rsync command is great at creating incremental backups; however, it does
+compress the output folders. 
+Tar, on the other hand, offers a great compression functionality, but does create
+incremental backups like rsync.
+Therefore, this program aims to create incremental compressed backups.
 
+To do:
+1. Organise the md5sum files and the tarballs in a more intuitive folder structure;
+2. Create the recovery function;
+3. Add functionality to support encrypted folders with veracrypt, so the user can
+   just plug in the encrypted volume, type `backup` in the terminal and have the
+   backups folders moved onto the encrypted volume. 
+   
 
-## Why use tar and find over rsync backups?
-
-Although rsync is great at creating incremental backups, it does not offer the
-compression functionality (only the compression during data transfer).
-Tar on the other hand offers good compression options and when combined with find
-it allows incremental backups. 
-
+**IMPORTANT: This project is still being developed.**
 
 Copyright 2021 Afonso Schulz Albrecht
 
